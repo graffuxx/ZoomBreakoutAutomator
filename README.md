@@ -61,6 +61,16 @@ Wenn Cloudflare statt Pages den neueren Workers-Deploy-Weg nutzt, sind `wrangler
 
 Mehr Details stehen in `zoom-app-manifest-notes.md`.
 
+## Zoom Marketplace Links
+
+Nach dem Deployment bei Cloudflare koennen diese URLs in Zoom eingetragen werden:
+
+- Privacy Policy URL: `https://zoombreakoutautomator.graffuxxx.workers.dev/privacy.html`
+- Terms of Use URL: `https://zoombreakoutautomator.graffuxxx.workers.dev/terms.html`
+- Support URL: `https://zoombreakoutautomator.graffuxxx.workers.dev/support.html`
+- Documentation URL: `https://zoombreakoutautomator.graffuxxx.workers.dev/documentation.html`
+- Configure URL: leer lassen
+
 ## Wichtige Einschraenkung
 
 Die App kann nur das tun, was Zoom fuer den aktuellen Nutzer, Client und Meeting-Kontext erlaubt. Wenn die Breakout-Room-APIs nicht freigegeben sind oder der Nutzer nicht Host/Co-Host ist, zeigt die App eine klare Meldung statt herumzuklicken.
