@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Breakout Rooms</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://appssdk.zoom.us/sdk.min.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Zoom App</p>
+          <h1>Breakout Rooms</h1>
+        </div>
+        <span id="connectionBadge" class="badge badge-warn">Demo</span>
+      </header>
+
+      <section class="status-strip" aria-live="polite">
+        <div>
+          <span class="label">Preset</span>
+          <strong id="activePresetLabel">Seminar</strong>
+        </div>
+        <div>
+          <span class="label">Raeume</span>
+          <strong id="roomCountLabel">0</strong>
+        </div>
+        <div>
+          <span class="label">Zoom</span>
+          <strong id="zoomStateLabel">Pruefe...</strong>
+        </div>
+      </section>
+
+      <section class="toolbar" aria-label="Preset Auswahl">
+        <select id="presetSelect" class="select"></select>
+        <button id="newPresetBtn" class="button secondary" type="button">Neu</button>
+      </section>
+
+      <section class="panel">
+        <label class="field">
+          <span>Preset-Name</span>
+          <input id="presetNameInput" type="text" autocomplete="off" spellcheck="false">
+        </label>
+
+        <div class="section-title">
+          <h2>Raumnamen</h2>
+          <button id="addRoomBtn" class="button secondary small" type="button">+ Raum</button>
+        </div>
+
+        <div id="roomsList" class="rooms-list" aria-label="Raumliste"></div>
+      </section>
+
+      <section class="actions" aria-label="Zoom Aktionen">
+        <button id="syncBtn" class="button primary" type="button">Raeume in Zoom anlegen</button>
+        <button id="renameBtn" class="button secondary" type="button">Namen aktualisieren</button>
+        <button id="openBtn" class="button success" type="button">Alle oeffnen</button>
+        <button id="closeBtn" class="button danger" type="button">Alle schliessen</button>
+      </section>
+
+      <section class="options">
+        <label class="check">
+          <input id="chooseRoomToggle" type="checkbox" checked>
+          <span>Teilnehmende duerfen Raum selbst waehlen</span>
+        </label>
+        <label class="check">
+          <input id="autoMoveToggle" type="checkbox" checked>
+          <span>Automatisch in Raeume verschieben</span>
+        </label>
+        <label class="field compact">
+          <span>Countdown beim Schliessen</span>
+          <input id="countdownInput" type="number" min="0" max="120" step="5" value="60">
+        </label>
+      </section>
+
+      <footer class="log" aria-live="polite">
+        <strong id="messageTitle">Bereit</strong>
+        <span id="messageText">Bearbeite deine Raeume. Lokal wird automatisch gespeichert.</span>
+      </footer>
+    </main>
+
+    <template id="roomRowTemplate">
+      <div class="room-row">
+        <span class="drag-handle" aria-hidden="true">::</span>
+        <input class="room-input" type="text" autocomplete="off" spellcheck="false">
+        <button class="icon-button remove-room" type="button" aria-label="Raum entfernen">x</button>
+      </div>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
