@@ -47,6 +47,8 @@ Empfohlener Weg:
 
 Die Datei `_headers` ist bereits vorbereitet. Cloudflare Pages und Netlify koennen daraus die benoetigten HTTP-Header setzen. GitHub Pages ist fuer die echte Zoom-App weniger geeignet, weil diese Header dort nicht sauber projektbezogen konfigurierbar sind.
 
+Wenn Cloudflare statt Pages den neueren Workers-Deploy-Weg nutzt, sind `wrangler.jsonc` und `.assetsignore` wichtig. `.assetsignore` verhindert, dass Cloudflare installierte Abhaengigkeiten wie `node_modules` als Website-Dateien hochlaedt.
+
 ## Zoom-Test
 
 1. App lokal oder online per HTTPS hosten.
