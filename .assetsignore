@@ -2,7 +2,12 @@
 **/.git
 **/.DS_Store
 .wrangler
+tmp
+src
+scripts
+security-evidence
 legacy_autohotkey
+technical-architecture.*
 *.zip
 package-lock.json
 README.md
