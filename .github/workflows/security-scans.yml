@@ -1,0 +1,111 @@
+name: Security Scans
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  sast-semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Semgrep
+        run: python -m pip install --upgrade semgrep
+
+      - name: Run Semgrep SAST scan
+        run: |
+          mkdir -p security-reports
+          semgrep scan \
+            --config p/javascript \
+            --config p/secrets \
+            --config p/owasp-top-ten \
+            --json \
+            --output security-reports/semgrep-report.json \
+            .
+        continue-on-error: true
+
+      - name: Run Semgrep SARIF export
+        run: |
+          semgrep scan \
+            --config p/javascript \
+            --config p/secrets \
+            --config p/owasp-top-ten \
+            --sarif \
+            --output security-reports/semgrep-report.sarif \
+            .
+        continue-on-error: true
+
+      - name: Write Semgrep summary
+        run: |
+          {
+            echo "Zoom Breakout Automator - Semgrep SAST Scan"
+            echo "Run date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Repository: $GITHUB_REPOSITORY"
+            echo "Commit: $GITHUB_SHA"
+            echo ""
+            echo "Scanner: Semgrep"
+            echo "Rulesets: p/javascript, p/secrets, p/owasp-top-ten"
+            echo "Report files:"
+            echo "- semgrep-report.json"
+            echo "- semgrep-report.sarif"
+          } > security-reports/semgrep-summary.txt
+
+      - name: Upload Semgrep reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sast-reports
+          path: security-reports/
+
+  dast-zap:
+    name: DAST - OWASP ZAP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          mkdir -p zap-reports
+          docker run --rm \
+            -v "${{ github.workspace }}/zap-reports:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+              -t "https://zoombreakoutautomator.graffuxxx.workers.dev" \
+              -a \
+              -j \
+              -J zap-report.json \
+              -w zap-report.md \
+              -r zap-report.html
+        continue-on-error: true
+
+      - name: Write ZAP summary
+        run: |
+          {
+            echo "Zoom Breakout Automator - OWASP ZAP DAST Scan"
+            echo "Run date: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            echo "Target: https://zoombreakoutautomator.graffuxxx.workers.dev"
+            echo "Repository: $GITHUB_REPOSITORY"
+            echo "Commit: $GITHUB_SHA"
+            echo ""
+            echo "Scanner: OWASP ZAP baseline scan"
+            echo "Report files:"
+            echo "- zap-report.html"
+            echo "- zap-report.md"
+            echo "- zap-report.json"
+          } > zap-reports/zap-summary.txt
+
+      - name: Upload ZAP reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-zap-dast-reports
+          path: zap-reports/
