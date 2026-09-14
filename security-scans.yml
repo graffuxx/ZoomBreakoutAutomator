@@ -83,10 +83,17 @@ jobs:
               -t "https://zoombreakoutautomator.graffuxxx.workers.dev" \
               -a \
               -j \
-              -J zap-report.json \
-              -w zap-report.md \
-              -r zap-report.html
+              -J /zap/wrk/zap-report.json \
+              -w /zap/wrk/zap-report.md \
+              -r /zap/wrk/zap-report.html
         continue-on-error: true
+
+      - name: Verify ZAP report files
+        run: |
+          ls -la zap-reports
+          test -f zap-reports/zap-report.html
+          test -f zap-reports/zap-report.md
+          test -f zap-reports/zap-report.json
 
       - name: Write ZAP summary
         run: |
