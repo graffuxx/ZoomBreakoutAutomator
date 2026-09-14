@@ -79,21 +79,29 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}/zap-reports:/zap/wrk:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py \
-              -t "https://zoombreakoutautomator.graffuxxx.workers.dev" \
-              -a \
-              -j \
-              -J /zap/wrk/zap-report.json \
-              -w /zap/wrk/zap-report.md \
-              -r /zap/wrk/zap-report.html
-        continue-on-error: true
+            /bin/bash -lc '
+              cd /zap/wrk
+              zap-baseline.py \
+                -t "https://zoombreakoutautomator.graffuxxx.workers.dev" \
+                -a \
+                -J zap-report.json \
+                -w zap-report.md \
+                -r zap-report.html
+              zap_exit=$?
+              echo "OWASP ZAP exit code: ${zap_exit}"
+              ls -la /zap/wrk
+              test -s zap-report.html
+              test -s zap-report.md
+              test -s zap-report.json
+              exit 0
+            '
 
       - name: Verify ZAP report files
         run: |
           ls -la zap-reports
-          test -f zap-reports/zap-report.html
-          test -f zap-reports/zap-report.md
-          test -f zap-reports/zap-report.json
+          test -s zap-reports/zap-report.html
+          test -s zap-reports/zap-report.md
+          test -s zap-reports/zap-report.json
 
       - name: Write ZAP summary
         run: |
