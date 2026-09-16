@@ -1,5 +1,5 @@
 name: Security Scans
-run-name: Security reports v4 - ${{ github.ref_name }}
+run-name: Security reports v5 - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -88,6 +88,21 @@ jobs:
           chmod 777 "$REPORT_DIR"
           docker pull "$ZAP_IMAGE" 2>&1 | tee "$REPORT_DIR/install.log"
           docker image inspect "$ZAP_IMAGE" --format '{{json .RepoDigests}}' > "$REPORT_DIR/image-digest.txt"
+          # Official ZAP recipe: install Chrome, then return to the unprivileged user.
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          Path(os.environ['REPORT_DIR'], 'Dockerfile').write_text('''FROM ghcr.io/zaproxy/zaproxy:stable
+          USER root
+          RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb \
+              && apt-get update && apt-get install -y /tmp/chrome.deb \
+              && rm /tmp/chrome.deb && rm -rf /var/lib/apt/lists/*
+          USER zap
+          ''')
+          PY
+          docker build -t zoom-zap-chrome "$REPORT_DIR" 2>&1 | tee -a "$REPORT_DIR/install.log"
+          docker image inspect zoom-zap-chrome --format '{{.Id}}' >> "$REPORT_DIR/image-digest.txt"
+          printf 'ZAP_IMAGE=zoom-zap-chrome\n' >> "$GITHUB_ENV"
           curl --fail --silent --show-error --location --max-time 60 \
             --proto '=https' --proto-redir '=https' \
             --dump-header "$REPORT_DIR/target-headers.txt" \
@@ -136,9 +151,11 @@ jobs:
           set +e
           timeout --signal=TERM --kill-after=30s 90m \
             docker run --rm --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --shm-size=2g \
             -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-full-scan.py -d -t "$TARGET_URL/" -m 3 -T 5 \
             --hook=/zap/wrk/progress-hooks.py \
+            -z "-config rules.domxss.browserid=chrome-headless -config scanner.threadPerHost=2" \
             -J zap-report.json -w zap-report.md -r zap-report.html \
             2>&1 | tee "$REPORT_DIR/scan.log"
           scan_exit=${PIPESTATUS[0]}
