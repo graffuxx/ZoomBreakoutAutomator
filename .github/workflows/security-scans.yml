@@ -1,11 +1,11 @@
 name: Security Scans
-run-name: Security reports v8 - manual - ${{ github.ref_name }}
+run-name: Security reports v8.2 - manual - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
     inputs:
       isolated_browser_test:
-        description: Allow Chrome without its sandbox inside this disposable scan container only
+        description: 'DAST starten: Chrome ohne Browser-Sandbox nur im temporaeren Testcontainer erlauben'
         type: boolean
         default: false
 
@@ -19,7 +19,7 @@ concurrency:
 jobs:
   scan:
     name: ${{ matrix.label }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     strategy:
       fail-fast: false
@@ -89,7 +89,8 @@ jobs:
         if: matrix.scanner == 'zap'
         run: |
           if [ "$ISOLATED_BROWSER_TEST" != true ]; then
-            echo '::error::Start this workflow manually with the isolated browser test checkbox enabled. It applies only to the disposable scan container.'
+            printf '%s\n' 'DAST NOT STARTED: Browser test permission was not selected. Use Actions > Security Scans > Run workflow, check DAST starten, then start a NEW run. Re-run jobs keeps the old unchecked input.' > "$REPORT_DIR/preflight-error.txt"
+            echo "::error::$(cat "$REPORT_DIR/preflight-error.txt")"
             exit 1
           fi
           # ZAP runs as its own container user and needs a writable mounted folder.
@@ -231,6 +232,9 @@ jobs:
               details.append((label, str(value)))
 
           try:
+              preflight = folder / 'preflight-error.txt'
+              if preflight.is_file():
+                  raise RuntimeError(preflight.read_text().strip())
               code = int(required('exit-code.txt').read_text().strip())
               log = required('scan.log').read_text(errors='replace')
               if scanner == 'semgrep':
@@ -432,57 +436,6 @@ jobs:
               raise
           PY
 
-      - name: Install screenshot tools after saving reports
-        if: always() && steps.report.outcome == 'success'
-        timeout-minutes: 5
-        run: |
-          python -m pip install 'playwright==1.55.0'
-          python -m playwright install --with-deps chromium
-
-      - name: Capture original scanner output as an image
-        id: screenshot
-        if: always() && steps.report.outcome == 'success'
-        timeout-minutes: 3
-        run: |
-          python - <<'PY'
-          import html
-          import json
-          import os
-          import re
-          from pathlib import Path
-          from playwright.sync_api import sync_playwright
-
-          folder = Path(os.environ['REPORT_DIR'])
-          status = json.loads((folder / 'scan-status.json').read_text())
-          if os.environ['SCANNER'] == 'zap':
-              source = folder / 'zap-report.html'
-          else:
-              # Display the original terminal result, not a fabricated GitHub screen.
-              raw = (folder / 'scan.log').read_text(errors='replace')
-              plain = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
-              excerpt = '\n'.join(plain.splitlines()[-100:])
-              source = folder / 'semgrep-terminal-output.html'
-              source.write_text('<!doctype html><meta charset="utf-8">'
-                  '<title>Original Semgrep terminal output</title>'
-                  '<style>body{font:16px monospace;margin:24px;color:#111;background:white}'
-                  'pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>'
-                  '<h1>Semgrep: original terminal output</h1><p>' + html.escape(status['status']) + '</p>'
-                  '<p>Run: ' + html.escape(status['run']) + '</p>'
-                  '<p>Last 100 lines of scan.log. Complete original log included in the download. '
-                  'Browser capture of scanner output, not the GitHub interface.</p><pre>'
-                  + html.escape(excerpt) + '</pre>')
-          with sync_playwright() as runtime:
-              browser = runtime.chromium.launch(chromium_sandbox=True)
-              page = browser.new_page(viewport={'width': 1280, 'height': 1000}, java_script_enabled=False)
-              page.route('**/*', lambda route: route.continue_() if route.request.url.startswith('file:') else route.abort())
-              page.goto(source.as_uri(), wait_until='load')
-              page.screenshot(path=str(folder / 'scanner-output.png'), full_page=True)
-              browser.close()
-          assert (folder / 'scanner-output.png').stat().st_size > 1000
-          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as summary:
-              summary.write('\nScanner output screenshot: `scanner-output.png` (browser capture of original output, not GitHub UI).\n')
-          PY
-
       - name: Upload verified reports or failure diagnostics
         id: upload
         if: always()
@@ -504,11 +457,11 @@ jobs:
         if: always()
         run: |
           test -s "$REPORT_DIR/validation-exit.txt" || exit 1
-          if [ ! -s "$REPORT_DIR/scanner-output.png" ]; then
-            echo '::error::Screenshot missing. Reports, if generated, are retained. Capture the finished GitHub summary manually for the reviewer.'
+          result=$(cat "$REPORT_DIR/validation-exit.txt")
+          if [ "$result" = 2 ]; then
+            echo '::error::Scan/report incomplete. Read REPORT-FAILED.txt or the scanner errors in the summary. No completed evidence is claimed.'
             exit 1
           fi
-          result=$(cat "$REPORT_DIR/validation-exit.txt")
           case "$result" in
             0) echo 'Scan complete. Check the summary for any low/informational ZAP alerts.' ;;
             1) echo '::error::Scan complete; security findings require review. Reports have been preserved.'; exit 1 ;;
