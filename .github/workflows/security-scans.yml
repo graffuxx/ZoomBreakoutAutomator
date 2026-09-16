@@ -1,5 +1,5 @@
 name: Security Scans
-run-name: Security reports v6 - ${{ github.ref_name }}
+run-name: Security reports v7 - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -157,7 +157,7 @@ jobs:
               snapshot(zap)
           ''')
           PY
-          zap_options="-config rules.domxss.browserid=chrome-headless -config scanner.threadPerHost=2"
+          zap_options="-config rules.domxss.browserid=chrome-headless -config scanner.threadPerHost=1 -config scanner.maxRuleDurationInMins=3"
           if [ "$ISOLATED_BROWSER_TEST" = true ]; then
             zap_options="$zap_options -config selenium.chromeArgs.arg.argument=--no-sandbox"
           fi
@@ -252,7 +252,8 @@ jobs:
                   required('zap-report.html')
                   required('zap-report.md')
                   daemon_log = required('zap.log').read_text(errors='replace')
-                  skipped = [line for line in daemon_log.splitlines() if 'skipped plugin [' in line]
+                  skipped = [line for line in daemon_log.splitlines()
+                             if any(term in line.lower() for term in ('skipped plugin [', 'time limit', 'timed out', 'maximum duration'))]
                   for line in skipped:
                       record('Skipped check / coverage limitation', line)
                   if 'Skipping scanner, failed to start browser' in daemon_log:
@@ -275,6 +276,7 @@ jobs:
                       problems.append('ZAP reported warnings but its JSON contains no alerts')
                   scope = (f"Unauthenticated active full scan of {os.environ['TARGET_URL']}/. "
                            'Traditional spider limited to 3 minutes, then active and passive checks. '
+                           'Each active rule has a 3-minute runtime budget; this is a bounded scan, not exhaustive testing. '
                            'Zoom client workflows, authenticated sessions and Zoom API endpoints are not tested. '
                            'The repository commit identifies this workflow, not necessarily the deployed website version.')
                   levels = {'0': 'Informational', '1': 'Low', '2': 'Medium', '3': 'High'}
