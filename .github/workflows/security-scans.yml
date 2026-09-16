@@ -1,8 +1,13 @@
 name: Security Scans
-run-name: Security reports v5 - ${{ github.ref_name }}
+run-name: Security reports v6 - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
+    inputs:
+      isolated_browser_test:
+        description: Allow Chrome without its sandbox inside this disposable scan container only
+        type: boolean
+        default: false
   push:
     branches: [main]
 
@@ -33,6 +38,7 @@ jobs:
       TARGET_URL: https://zoombreakoutautomator.graffuxxx.workers.dev
       ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
       PYTHONUNBUFFERED: "1"
+      ISOLATED_BROWSER_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.isolated_browser_test && 'true' || 'false' }}
     defaults:
       run:
         shell: bash
@@ -146,8 +152,15 @@ jobs:
                           print('Progress diagnostic: ' + str(exc), flush=True)
                       threading.Event().wait(30)
               threading.Thread(target=monitor, daemon=True).start()
+
+          def zap_pre_shutdown(zap):
+              snapshot(zap)
           ''')
           PY
+          zap_options="-config rules.domxss.browserid=chrome-headless -config scanner.threadPerHost=2"
+          if [ "$ISOLATED_BROWSER_TEST" = true ]; then
+            zap_options="$zap_options -config selenium.chromeArgs.arg.argument=--no-sandbox"
+          fi
           set +e
           timeout --signal=TERM --kill-after=30s 90m \
             docker run --rm --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
@@ -155,7 +168,7 @@ jobs:
             -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-full-scan.py -d -t "$TARGET_URL/" -m 3 -T 5 \
             --hook=/zap/wrk/progress-hooks.py \
-            -z "-config rules.domxss.browserid=chrome-headless -config scanner.threadPerHost=2" \
+            -z "$zap_options" \
             -J zap-report.json -w zap-report.md -r zap-report.html \
             2>&1 | tee "$REPORT_DIR/scan.log"
           scan_exit=${PIPESTATUS[0]}
@@ -238,6 +251,14 @@ jobs:
                   data = json.loads(required('zap-report.json').read_text())
                   required('zap-report.html')
                   required('zap-report.md')
+                  daemon_log = required('zap.log').read_text(errors='replace')
+                  skipped = [line for line in daemon_log.splitlines() if 'skipped plugin [' in line]
+                  for line in skipped:
+                      record('Skipped check / coverage limitation', line)
+                  if 'Skipping scanner, failed to start browser' in daemon_log:
+                      problems.append('DOM XSS coverage incomplete: the scanner browser failed to start.')
+                  if 'completed host/plugin' not in daemon_log:
+                      problems.append('No completed active checks recorded in ZAP daemon log.')
                   sites = data['site']
                   assert isinstance(sites, list) and sites, 'No scanned site in ZAP report'
                   host = urlsplit(os.environ['TARGET_URL']).hostname
