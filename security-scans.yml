@@ -1,26 +1,19 @@
+# Upload this single file to .github/workflows/security-scans.yml.
+# Manual scans only. No deployment, browser installation or screenshots.
 name: Security Scans
-run-name: Security reports v8 - manual - ${{ github.ref_name }}
+run-name: Security reports v9 - HTTP active - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
-    inputs:
-      isolated_browser_test:
-        description: Allow Chrome without its sandbox inside this disposable scan container only
-        type: boolean
-        default: false
 
 permissions:
   contents: read
 
-concurrency:
-  group: security-scans-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   scan:
     name: ${{ matrix.label }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 50
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -29,18 +22,16 @@ jobs:
             label: SAST - Semgrep
             artifact: semgrep-sast-reports
           - scanner: zap
-            label: DAST - OWASP ZAP (active)
+            label: DAST - ZAP HTTP active (DOM excluded)
             artifact: owasp-zap-dast-reports
     env:
       SCANNER: ${{ matrix.scanner }}
       TARGET_URL: https://zoombreakoutautomator.graffuxxx.workers.dev
       ZAP_IMAGE: ghcr.io/zaproxy/zaproxy:stable
       PYTHONUNBUFFERED: "1"
-      ISOLATED_BROWSER_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.isolated_browser_test && 'true' || 'false' }}
     defaults:
       run:
         shell: bash
-
     steps:
       - name: Prepare report directory
         run: |
@@ -64,16 +55,13 @@ jobs:
 
       - name: Install Semgrep
         if: matrix.scanner == 'semgrep'
-        run: |
-          python -m pip install 'semgrep==1.177.0' 2>&1 | tee "$REPORT_DIR/install.log"
-          semgrep --version > "$REPORT_DIR/scanner-version.txt"
+        run: python -m pip install 'semgrep==1.177.0' 2>&1 | tee "$REPORT_DIR/install.log"
 
       - name: Run Semgrep once and save both original formats
         if: matrix.scanner == 'semgrep'
         run: |
-          # Keep the real scanner exit code; validate and fail AFTER saving evidence.
           set +e
-          semgrep scan \
+          timeout --signal=TERM --kill-after=30s 15m semgrep scan \
             --config p/javascript --config p/secrets --config p/owasp-top-ten \
             --metrics=off --strict --error \
             --exclude security-evidence --exclude tmp --exclude node_modules \
@@ -85,107 +73,47 @@ jobs:
           set -e
           printf '%s\n' "$scan_exit" > "$REPORT_DIR/exit-code.txt"
 
-      - name: Prepare OWASP ZAP
+      - name: Prepare official OWASP ZAP image
         if: matrix.scanner == 'zap'
+        timeout-minutes: 5
         run: |
-          if [ "$ISOLATED_BROWSER_TEST" != true ]; then
-            echo '::error::Start this workflow manually with the isolated browser test checkbox enabled. It applies only to the disposable scan container.'
-            exit 1
-          fi
-          # ZAP runs as its own container user and needs a writable mounted folder.
           chmod 777 "$REPORT_DIR"
           docker pull "$ZAP_IMAGE" 2>&1 | tee "$REPORT_DIR/install.log"
           docker image inspect "$ZAP_IMAGE" --format '{{json .RepoDigests}}' > "$REPORT_DIR/image-digest.txt"
-          # Official ZAP recipe: install Chrome, then return to the unprivileged user.
-          python - <<'PY'
-          import os
-          from pathlib import Path
-          Path(os.environ['REPORT_DIR'], 'Dockerfile').write_text('''FROM ghcr.io/zaproxy/zaproxy:stable
-          USER root
-          RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb \\
-              && apt-get update && apt-get install -y /tmp/chrome.deb \\
-              && rm /tmp/chrome.deb && rm -rf /var/lib/apt/lists/*
-          USER zap
-          ''')
-          PY
-          docker build -t zoom-zap-chrome "$REPORT_DIR" 2>&1 | tee -a "$REPORT_DIR/install.log"
-          docker image inspect zoom-zap-chrome --format '{{.Id}}' >> "$REPORT_DIR/image-digest.txt"
-          printf 'ZAP_IMAGE=zoom-zap-chrome\n' >> "$GITHUB_ENV"
-          timeout 60s docker run --rm --shm-size=2g zoom-zap-chrome \
-            google-chrome --headless --no-sandbox --disable-gpu --dump-dom about:blank \
-            > "$REPORT_DIR/browser-preflight.log" 2>&1
-          grep -qi '<html' "$REPORT_DIR/browser-preflight.log"
-          curl --fail --silent --show-error --location --max-time 60 \
-            --proto '=https' --proto-redir '=https' \
-            --dump-header "$REPORT_DIR/target-headers.txt" \
-            --output "$REPORT_DIR/target-page.html" "$TARGET_URL/"
 
-      - name: Run OWASP ZAP active scan and save original reports
+      - name: Run OWASP ZAP active HTTP scan
         if: matrix.scanner == 'zap'
-        timeout-minutes: 33
+        timeout-minutes: 22
         run: |
-          # Scan only this application's public host. Zoom APIs are outside scope.
-          # Relative output names resolve inside the writable /zap/wrk mount.
+          # Only the hanging browser-dependent DOM rule is excluded, not HTTP alerts.
+          printf '40026\tIGNORE\tDOM-XSS browser test excluded from this HTTP scan; not tested.\n' > "$REPORT_DIR/zap-rules.tsv"
           python - <<'PY'
           import os
           from pathlib import Path
-          Path(os.environ['REPORT_DIR'], 'progress-hooks.py').write_text('''import json
+          Path(os.environ['REPORT_DIR'], 'completion-hook.py').write_text('''import json
           import shutil
-          import threading
           from pathlib import Path
-
-          stopped = threading.Event()
-          snapshot_lock = threading.Lock()
-
-          def snapshot(zap):
-              scans = zap.ascan.scans
-              for scan in scans:
-                  progress = zap.ascan.scan_progress(scan['id'])
-                  payload = {'scan': scan, 'rules': progress}
-                  pending = Path('/zap/wrk/active-progress-' + str(threading.get_ident()) + '.tmp')
-                  pending.write_text(json.dumps(payload, indent=2))
-                  pending.replace('/zap/wrk/active-progress.json')
-                  print('ACTIVE SCAN: ' + json.dumps(scan), flush=True)
-                  for host in progress:
-                      if isinstance(host, dict):
-                          for entry in host.get('HostProcess', []):
-                              print('ACTIVE RULE: ' + json.dumps(entry), flush=True)
-              for source in ('/zap/zap.out', '/home/zap/.ZAP/zap.log'):
-                  path = Path(source)
-                  if path.is_file():
-                      shutil.copyfile(path, Path('/zap/wrk') / path.name)
-
-          def zap_started(zap, target):
-              def monitor():
-                  while not stopped.is_set():
-                      try:
-                          with snapshot_lock:
-                              snapshot(zap)
-                      except Exception as exc:
-                          print('Progress diagnostic: ' + str(exc), flush=True)
-                      stopped.wait(30)
-              threading.Thread(target=monitor, daemon=True).start()
 
           def zap_pre_shutdown(zap):
-              stopped.set()
-              with snapshot_lock:
-                  snapshot(zap)
+              scans = zap.ascan.scans
+              payload = {
+                  'scan': scans[-1] if scans else {},
+                  'rules': zap.ascan.scan_progress(scans[-1]['id']) if scans else [],
+                  'policy': zap.ascan.scanners('Default Policy'),
+              }
+              Path('/zap/wrk/active-progress.json').write_text(json.dumps(payload, indent=2))
+              shutil.copyfile('/home/zap/.ZAP/zap.log', '/zap/wrk/zap.log')
           ''')
           PY
-          # Do not truncate individual rules and then call their coverage complete.
-          # The outer timeout bounds a stuck run and is treated as a scanner failure.
-          zap_options="-config rules.domxss.browserid=chrome-headless -config scanner.threadPerHost=1 -config scanner.maxRuleDurationInMins=0"
-          if [ "$ISOLATED_BROWSER_TEST" = true ]; then
-            zap_options="$zap_options -config selenium.chromeArgs.arg.argument=--no-sandbox"
-          fi
+          # Native full scan: spider, active HTTP attacks, passive checks, native reports.
+          # No AJAX/client spider and no individual-rule truncation.
           set +e
-          timeout --signal=TERM --kill-after=30s 30m \
+          timeout --signal=TERM --kill-after=30s 20m \
             docker run --rm --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            --shm-size=2g \
             -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
-            zap-full-scan.py -d -t "$TARGET_URL/" -m 3 -T 5 \
-            --hook=/zap/wrk/progress-hooks.py \
-            -z "$zap_options" \
+            zap-full-scan.py -t "$TARGET_URL/" -m 2 -T 5 \
+            -c zap-rules.tsv --hook=/zap/wrk/completion-hook.py \
+            -z "-config scanner.maxRuleDurationInMins=0" \
             -J zap-report.json -w zap-report.md -r zap-report.html \
             2>&1 | tee "$REPORT_DIR/scan.log"
           scan_exit=${PIPESTATUS[0]}
@@ -213,7 +141,7 @@ jobs:
           scanner = os.environ['SCANNER']
           summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
           output_path = Path(os.environ['GITHUB_OUTPUT'])
-          title = 'SAST - Semgrep' if scanner == 'semgrep' else 'DAST - OWASP ZAP (active)'
+          title = 'SAST - Semgrep' if scanner == 'semgrep' else 'DAST - ZAP HTTP active (DOM-XSS excluded)'
           run_url = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                      f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/attempts/{os.environ['GITHUB_RUN_ATTEMPT']}")
           problems, details, coverage = [], [], []
@@ -288,9 +216,14 @@ jobs:
                   plugins = [entry['Plugin'] for host_progress in progress.get('rules', [])
                              if isinstance(host_progress, dict)
                              for entry in host_progress.get('HostProcess', []) if 'Plugin' in entry]
-                  dom = [plugin for plugin in plugins if len(plugin) >= 7 and str(plugin[1]) == '40026']
-                  if not dom or any(p[3] != 'Complete' or int(p[5]) <= 0 for p in dom):
-                      problems.append('DOM XSS browser rule did not complete with recorded test requests.')
+                  dom = [rule for rule in progress['policy'] if str(rule['id']) == '40026']
+                  if len(dom) != 1 or dom[0].get('alertThreshold') != 'OFF':
+                      problems.append('DOM exclusion was not confirmed in the executed scan policy.')
+                  if not any(len(p) >= 7 and str(p[1]) != '40026' and p[3] == 'Complete'
+                             and int(p[5]) > 0 for p in plugins):
+                      problems.append('No completed HTTP active rule with test requests recorded.')
+                  record('Excluded test', 'DOM-XSS browser rule 40026: NOT TESTED. Prior browser runs stalled.')
+                  record('Actual active policy', json.dumps(progress['policy']))
                   record('Active scan completion', json.dumps(active))
                   for plugin in plugins:
                       record('Active rule execution', json.dumps(plugin))
@@ -308,9 +241,10 @@ jobs:
                       problems.append(f'Scanner execution failed: exit code {code}')
                   if code == 2 and not findings:
                       problems.append('ZAP reported warnings but its JSON contains no alerts')
-                  scope = (f"Unauthenticated active full scan of {os.environ['TARGET_URL']}/. "
-                           'Traditional spider limited to 3 minutes, then active and passive checks. '
-                           'No per-rule time limit. A 30-minute outer timeout marks the run incomplete if exceeded. '
+                  scope = (f"Unauthenticated active HTTP scan of {os.environ['TARGET_URL']}/. "
+                           'DOM-XSS browser rule 40026 is excluded and NOT TESTED because prior browser scans stalled. '
+                           'No browser or AJAX/client spider. Traditional spider limited to 2 minutes, then active and passive checks. '
+                           'No per-rule time limit. A 20-minute outer timeout marks the run incomplete if exceeded. '
                            'OAST tests without an external callback service and custom-script checks may be skipped; see execution details. '
                            'Zoom client workflows, authenticated sessions and Zoom API endpoints are not tested. '
                            'The repository commit identifies this workflow, not necessarily the deployed website version.')
@@ -332,7 +266,7 @@ jobs:
                               if instance.get(field):
                                   record(field, plain(instance[field]))
                   originals = ['zap-report.json', 'zap-report.html', 'zap-report.md']
-                  originals += ['active-progress.json', 'zap.log']
+                  originals += ['active-progress.json', 'zap.log', 'zap-rules.tsv']
 
               if problems:
                   status = 'INCOMPLETE - scanner errors require investigation'
@@ -362,6 +296,7 @@ jobs:
               from pypdf import PdfReader, PdfWriter
 
               styles = getSampleStyleSheet()
+              styles['Heading3'].keepWithNext = True
               styles['BodyText'].fontSize = 9
               styles['BodyText'].leading = 13
               styles['BodyText'].wordWrap = 'CJK'
@@ -405,6 +340,7 @@ jobs:
               summary = (f'## {title}\n\n**{status}**\n\n'
                          f'- Findings: {count_text}\n- Scanner exit code: {code}\n'
                          f'- PDF for upload: `{pdf.name}`\n- Run: {run_url}\n\n'
+                         f'**Scope and limitations:** {scope}\n\n'
                          'Original scanner reports and scan.log are included in the artifact. '
                          'A completed scan does not imply that all findings are resolved.\n')
               if problems:
@@ -432,57 +368,6 @@ jobs:
               raise
           PY
 
-      - name: Install screenshot tools after saving reports
-        if: always() && steps.report.outcome == 'success'
-        timeout-minutes: 5
-        run: |
-          python -m pip install 'playwright==1.55.0'
-          python -m playwright install --with-deps chromium
-
-      - name: Capture original scanner output as an image
-        id: screenshot
-        if: always() && steps.report.outcome == 'success'
-        timeout-minutes: 3
-        run: |
-          python - <<'PY'
-          import html
-          import json
-          import os
-          import re
-          from pathlib import Path
-          from playwright.sync_api import sync_playwright
-
-          folder = Path(os.environ['REPORT_DIR'])
-          status = json.loads((folder / 'scan-status.json').read_text())
-          if os.environ['SCANNER'] == 'zap':
-              source = folder / 'zap-report.html'
-          else:
-              # Display the original terminal result, not a fabricated GitHub screen.
-              raw = (folder / 'scan.log').read_text(errors='replace')
-              plain = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', raw)
-              excerpt = '\n'.join(plain.splitlines()[-100:])
-              source = folder / 'semgrep-terminal-output.html'
-              source.write_text('<!doctype html><meta charset="utf-8">'
-                  '<title>Original Semgrep terminal output</title>'
-                  '<style>body{font:16px monospace;margin:24px;color:#111;background:white}'
-                  'pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>'
-                  '<h1>Semgrep: original terminal output</h1><p>' + html.escape(status['status']) + '</p>'
-                  '<p>Run: ' + html.escape(status['run']) + '</p>'
-                  '<p>Last 100 lines of scan.log. Complete original log included in the download. '
-                  'Browser capture of scanner output, not the GitHub interface.</p><pre>'
-                  + html.escape(excerpt) + '</pre>')
-          with sync_playwright() as runtime:
-              browser = runtime.chromium.launch(chromium_sandbox=True)
-              page = browser.new_page(viewport={'width': 1280, 'height': 1000}, java_script_enabled=False)
-              page.route('**/*', lambda route: route.continue_() if route.request.url.startswith('file:') else route.abort())
-              page.goto(source.as_uri(), wait_until='load')
-              page.screenshot(path=str(folder / 'scanner-output.png'), full_page=True)
-              browser.close()
-          assert (folder / 'scanner-output.png').stat().st_size > 1000
-          with Path(os.environ['GITHUB_STEP_SUMMARY']).open('a') as summary:
-              summary.write('\nScanner output screenshot: `scanner-output.png` (browser capture of original output, not GitHub UI).\n')
-          PY
-
       - name: Upload verified reports or failure diagnostics
         id: upload
         if: always()
@@ -504,11 +389,11 @@ jobs:
         if: always()
         run: |
           test -s "$REPORT_DIR/validation-exit.txt" || exit 1
-          if [ ! -s "$REPORT_DIR/scanner-output.png" ]; then
-            echo '::error::Screenshot missing. Reports, if generated, are retained. Capture the finished GitHub summary manually for the reviewer.'
+          result=$(cat "$REPORT_DIR/validation-exit.txt")
+          if [ "$result" = 2 ]; then
+            echo '::error::Scan/report incomplete. Read REPORT-FAILED.txt or the scanner errors in the summary. No completed evidence is claimed.'
             exit 1
           fi
-          result=$(cat "$REPORT_DIR/validation-exit.txt")
           case "$result" in
             0) echo 'Scan complete. Check the summary for any low/informational ZAP alerts.' ;;
             1) echo '::error::Scan complete; security findings require review. Reports have been preserved.'; exit 1 ;;
