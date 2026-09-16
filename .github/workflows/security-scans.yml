@@ -112,7 +112,11 @@ jobs:
                   progress = zap.ascan.scan_progress(scan['id'])
                   payload = {'scan': scan, 'rules': progress}
                   Path('/zap/wrk/active-progress.json').write_text(json.dumps(payload, indent=2))
-                  print('ACTIVE RULE DETAILS: ' + json.dumps(payload), flush=True)
+                  print('ACTIVE SCAN: ' + json.dumps(scan), flush=True)
+                  for host in progress:
+                      if isinstance(host, dict):
+                          for entry in host.get('HostProcess', []):
+                              print('ACTIVE RULE: ' + json.dumps(entry), flush=True)
               for source in ('/zap/zap.out', '/home/zap/.ZAP/zap.log'):
                   path = Path(source)
                   if path.is_file():
