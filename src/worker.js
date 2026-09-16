@@ -4,8 +4,9 @@ const SECURITY_HEADERS = {
   "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self' https://appssdk.zoom.us; style-src 'self'; img-src 'self' data:; connect-src 'self' https://appssdk.zoom.us https://*.zoom.us",
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://appssdk.zoom.us https://*.zoom.us; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://zoom.us https://*.zoom.us",
 };
 
 function responseWithSecurityHeaders(response) {
@@ -24,6 +25,12 @@ function responseWithSecurityHeaders(response) {
 
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.protocol === "http:") {
+      url.protocol = "https:";
+      return responseWithSecurityHeaders(Response.redirect(url.href, 308));
+    }
+
     const tlsVersion = request.cf?.tlsVersion;
 
     if (tlsVersion && !ALLOWED_TLS_VERSIONS.has(tlsVersion)) {
