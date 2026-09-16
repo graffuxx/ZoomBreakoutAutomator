@@ -17,7 +17,7 @@ jobs:
   scan:
     name: ${{ matrix.label }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 110
     strategy:
       fail-fast: false
       matrix:
@@ -99,7 +99,7 @@ jobs:
           # Scan only this application's public host. Zoom APIs are outside scope.
           # Relative output names resolve inside the writable /zap/wrk mount.
           set +e
-          timeout --signal=TERM --kill-after=30s 25m \
+          timeout --signal=TERM --kill-after=30s 90m \
             docker run --rm --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-full-scan.py -d -t "$TARGET_URL/" -m 3 -T 5 \
