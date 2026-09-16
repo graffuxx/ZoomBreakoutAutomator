@@ -101,8 +101,8 @@ jobs:
           set +e
           timeout --signal=TERM --kill-after=30s 25m \
             docker run --rm --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
-            zap-full-scan.py -t "$TARGET_URL/" -m 3 -T 5 \
+            -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
+            zap-full-scan.py -d -t "$TARGET_URL/" -m 3 -T 5 \
             -J zap-report.json -w zap-report.md -r zap-report.html \
             2>&1 | tee "$REPORT_DIR/scan.log"
           scan_exit=${PIPESTATUS[0]}
