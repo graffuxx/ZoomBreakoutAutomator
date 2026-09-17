@@ -1,7 +1,7 @@
 # Upload this single file to .github/workflows/security-scans.yml.
-# Manual scans only. No deployment, browser installation or screenshots.
+# Manual scans only. Uses the official ZAP image's bundled Firefox browser.
 name: Security Scans
-run-name: Security reports v9 - HTTP active - ${{ github.ref_name }}
+run-name: Security reports v10 - HTTP and DOM - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
             label: SAST - Semgrep
             artifact: semgrep-sast-reports
           - scanner: zap
-            label: DAST - ZAP HTTP active (DOM excluded)
+            label: DAST - ZAP HTTP and DOM
             artifact: owasp-zap-dast-reports
     env:
       SCANNER: ${{ matrix.scanner }}
@@ -85,14 +85,17 @@ jobs:
         if: matrix.scanner == 'zap'
         timeout-minutes: 22
         run: |
-          # Only the hanging browser-dependent DOM rule is excluded, not HTTP alerts.
-          printf '40026\tIGNORE\tDOM-XSS browser test excluded from this HTTP scan; not tested.\n' > "$REPORT_DIR/zap-rules.tsv"
+          printf '# No disabled rules. DOM-XSS uses bundled Firefox headless.\n' > "$REPORT_DIR/zap-rules.tsv"
           python - <<'PY'
           import os
           from pathlib import Path
           Path(os.environ['REPORT_DIR'], 'completion-hook.py').write_text('''import json
           import shutil
           from pathlib import Path
+
+          def zap_started(zap, target):
+              for path in ('/privacy.html', '/terms.html', '/support.html', '/documentation.html'):
+                  zap.urlopen(target.rstrip('/') + path)
 
           def zap_pre_shutdown(zap):
               scans = zap.ascan.scans
@@ -106,14 +109,14 @@ jobs:
           ''')
           PY
           # Native full scan: spider, active HTTP attacks, passive checks, native reports.
-          # No AJAX/client spider and no individual-rule truncation.
+          # Explicitly seed unlinked public pages; do not truncate individual rules.
           set +e
           timeout --signal=TERM --kill-after=30s 20m \
-            docker run --rm --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            docker run --rm --shm-size=2g --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
             zap-full-scan.py -t "$TARGET_URL/" -m 2 -T 5 \
             -c zap-rules.tsv --hook=/zap/wrk/completion-hook.py \
-            -z "-config scanner.maxRuleDurationInMins=0" \
+            -z "-config scanner.maxRuleDurationInMins=0 -config rules.domxss.browserid=firefox-headless" \
             -J zap-report.json -w zap-report.md -r zap-report.html \
             2>&1 | tee "$REPORT_DIR/scan.log"
           scan_exit=${PIPESTATUS[0]}
@@ -141,7 +144,7 @@ jobs:
           scanner = os.environ['SCANNER']
           summary_path = Path(os.environ['GITHUB_STEP_SUMMARY'])
           output_path = Path(os.environ['GITHUB_OUTPUT'])
-          title = 'SAST - Semgrep' if scanner == 'semgrep' else 'DAST - ZAP HTTP active (DOM-XSS excluded)'
+          title = 'SAST - Semgrep' if scanner == 'semgrep' else 'DAST - ZAP HTTP and DOM-XSS'
           run_url = (f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}"
                      f"/actions/runs/{os.environ['GITHUB_RUN_ID']}/attempts/{os.environ['GITHUB_RUN_ATTEMPT']}")
           problems, details, coverage = [], [], []
@@ -170,7 +173,7 @@ jobs:
                   assert isinstance(findings, list) and isinstance(errors, list)
                   assert isinstance(coverage, list) and coverage, 'No source files were scanned'
                   scanned = {p.removeprefix('./') for p in coverage}
-                  assert {'app.js', 'src/worker.js'} <= scanned, 'Application source missing from scan coverage'
+                  assert {'app.js', 'src/worker.js', 'zoom-apps-sdk-0.16.41.min.js'} <= scanned, 'Application source or shipped SDK missing from scan coverage'
                   runs = sarif['runs']
                   assert runs and sarif['version'] == '2.1.0', 'Invalid SARIF report'
                   rules = runs[0]['tool']['driver']['rules']
@@ -217,12 +220,15 @@ jobs:
                              if isinstance(host_progress, dict)
                              for entry in host_progress.get('HostProcess', []) if 'Plugin' in entry]
                   dom = [rule for rule in progress['policy'] if str(rule['id']) == '40026']
-                  if len(dom) != 1 or dom[0].get('alertThreshold') != 'OFF':
-                      problems.append('DOM exclusion was not confirmed in the executed scan policy.')
+                  if len(dom) != 1 or dom[0].get('alertThreshold') == 'OFF':
+                      problems.append('DOM-XSS was not enabled in the executed scan policy.')
+                  if not any(len(p) >= 7 and str(p[1]) == '40026' and p[3] == 'Complete'
+                             and int(p[5]) > 0 for p in plugins):
+                      problems.append('DOM-XSS browser rule did not complete with test requests.')
                   if not any(len(p) >= 7 and str(p[1]) != '40026' and p[3] == 'Complete'
                              and int(p[5]) > 0 for p in plugins):
                       problems.append('No completed HTTP active rule with test requests recorded.')
-                  record('Excluded test', 'DOM-XSS browser rule 40026: NOT TESTED. Prior browser runs stalled.')
+                  record('Browser test', 'DOM-XSS rule 40026 enabled with Firefox headless; completion checked below.')
                   record('Actual active policy', json.dumps(progress['policy']))
                   record('Active scan completion', json.dumps(active))
                   for plugin in plugins:
@@ -242,8 +248,8 @@ jobs:
                   if code == 2 and not findings:
                       problems.append('ZAP reported warnings but its JSON contains no alerts')
                   scope = (f"Unauthenticated active HTTP scan of {os.environ['TARGET_URL']}/. "
-                           'DOM-XSS browser rule 40026 is excluded and NOT TESTED because prior browser scans stalled. '
-                           'No browser or AJAX/client spider. Traditional spider limited to 2 minutes, then active and passive checks. '
+                           'Includes DOM-XSS browser rule 40026 using Firefox headless. '
+                           'No AJAX/client spider. Traditional spider limited to 2 minutes; public documentation pages explicitly seeded, then active and passive checks. '
                            'No per-rule time limit. A 20-minute outer timeout marks the run incomplete if exceeded. '
                            'OAST tests without an external callback service and custom-script checks may be skipped; see execution details. '
                            'Zoom client workflows, authenticated sessions and Zoom API endpoints are not tested. '
