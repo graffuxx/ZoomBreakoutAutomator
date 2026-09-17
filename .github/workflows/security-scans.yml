@@ -1,7 +1,7 @@
 # Upload this single file to .github/workflows/security-scans.yml.
 # Manual scans only. Uses the official ZAP image's bundled Firefox browser.
 name: Security Scans
-run-name: Security reports v10 - HTTP and DOM - ${{ github.ref_name }}
+run-name: Security reports v11 - HTTP and DOM diagnostics - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -91,21 +91,46 @@ jobs:
           from pathlib import Path
           Path(os.environ['REPORT_DIR'], 'completion-hook.py').write_text('''import json
           import shutil
+          import threading
           from pathlib import Path
 
-          def zap_started(zap, target):
-              for path in ('/privacy.html', '/terms.html', '/support.html', '/documentation.html'):
-                  zap.urlopen(target.rstrip('/') + path)
-
-          def zap_pre_shutdown(zap):
+          def capture_progress(zap):
               scans = zap.ascan.scans
               payload = {
                   'scan': scans[-1] if scans else {},
                   'rules': zap.ascan.scan_progress(scans[-1]['id']) if scans else [],
                   'policy': zap.ascan.scanners('Default Policy'),
               }
-              Path('/zap/wrk/active-progress.json').write_text(json.dumps(payload, indent=2))
+              temp = Path('/zap/wrk/active-progress.json.tmp')
+              temp.write_text(json.dumps(payload, indent=2))
+              temp.replace('/zap/wrk/active-progress.json')
               shutil.copyfile('/home/zap/.ZAP/zap.log', '/zap/wrk/zap.log')
+              print('ZAP progress: ' + json.dumps(payload['scan']), flush=True)
+
+          stopped = threading.Event()
+          monitor = None
+
+          def monitor_progress(zap):
+              while not stopped.wait(30):
+                  try:
+                      capture_progress(zap)
+                  except Exception as error:
+                      print('Progress capture error: ' + str(error), flush=True)
+
+          def zap_started(zap, target):
+              global monitor
+              print('ZAP started; saving progress every 30 seconds.', flush=True)
+              monitor = threading.Thread(target=monitor_progress, args=(zap,), daemon=True)
+              monitor.start()
+              for path in ('/privacy.html', '/terms.html', '/support.html', '/documentation.html'):
+                  print('Seeding public page: ' + path, flush=True)
+                  zap.urlopen(target.rstrip('/') + path)
+
+          def zap_pre_shutdown(zap):
+              stopped.set()
+              if monitor:
+                  monitor.join()
+              capture_progress(zap)
           ''')
           PY
           # Native full scan: spider, active HTTP attacks, passive checks, native reports.
@@ -114,7 +139,7 @@ jobs:
           timeout --signal=TERM --kill-after=30s 20m \
             docker run --rm --shm-size=2g --name "zap-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
             -e PYTHONUNBUFFERED=1 -v "$REPORT_DIR:/zap/wrk:rw" "$ZAP_IMAGE" \
-            zap-full-scan.py -t "$TARGET_URL/" -m 2 -T 5 \
+            zap-full-scan.py -d -t "$TARGET_URL/" -m 2 -T 5 \
             -c zap-rules.tsv --hook=/zap/wrk/completion-hook.py \
             -z "-config scanner.maxRuleDurationInMins=0 -config rules.domxss.browserid=firefox-headless" \
             -J zap-report.json -w zap-report.md -r zap-report.html \
