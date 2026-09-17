@@ -1,0 +1,6 @@
+# Scan shipped JavaScript, including the pinned minified Zoom SDK.
+.git/
+node_modules/
+tmp/
+security-evidence/
+legacy_autohotkey/

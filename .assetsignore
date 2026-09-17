@@ -12,3 +12,12 @@ technical-architecture.*
 package-lock.json
 README.md
 zoom-app-manifest-notes.md
+.github
+.semgrepignore
+*.md
+*.yml
+*.yaml
+*.json
+*.jsonc
+worker.js
+security-check.mjs
