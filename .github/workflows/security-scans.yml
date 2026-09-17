@@ -1,7 +1,7 @@
 # Upload this single file to .github/workflows/security-scans.yml.
 # Manual scans only. Produces readable PDFs plus the original scanner reports.
 name: Security Scans
-run-name: Security reports v12 - standard SAST and DAST - ${{ github.ref_name }}
+run-name: Security reports v12.1 - standard SAST and DAST - ${{ github.ref_name }}
 
 on:
   workflow_dispatch:
@@ -87,7 +87,7 @@ jobs:
         run: |
           # Rule 40026 is a browser-only DOM-XSS add-on. This workflow intentionally
           # performs the stable, unauthenticated HTTP DAST requested for evidence.
-          printf '40026\tIGNORE\n' > "$REPORT_DIR/zap-rules.tsv"
+          printf '40026\tIGNORE\tDOM XSS Scan Rule (browser-only)\n' > "$REPORT_DIR/zap-rules.tsv"
           python - <<'PY'
           import os
           from pathlib import Path
