@@ -52,14 +52,24 @@ Verschluesselte Cloudflare-Secrets:
 - `ZOOM_CLIENT_SECRET`: Development Client Secret der Zoom-App
 - `SESSION_SECRET`: zufaelliges, mindestens 32 Byte langes Geheimnis
 
+Der Stripe-Testschluessel `Zoom Pro Test Worker` besitzt nur diese Rechte:
+
+- Checkout Sessions: Schreiben
+- Customer Portal: Schreiben
+- Subscriptions: Lesen
+
 Webhook-Ziel nach der Bereitstellung:
 
-`https://<test-worker-domain>/api/billing/webhook`
+`https://zoombreakoutautomator-pro-test.graffuxxx.workers.dev/api/billing/webhook`
+
+Stripe-Ziel-ID: `we_1UbRgP3e1xaSe4TbLHLg4PBt`
 
 Erforderliche Stripe-Ereignisse:
 
 - `checkout.session.completed`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
+
+Am 13. November 2026 wurde `checkout.session.completed` ueber die Stripe-Test-Shell ausgeloest. Stripe bestaetigte die Zustellung an den Testworker mit `200 OK`. Damit sind HTTPS-Erreichbarkeit, Webhook-Signaturpruefung und das verschluesselt gespeicherte Signaturgeheimnis technisch nachgewiesen.
 
 Die Abrechnung wird erst auf `BILLING_ENABLED=true` gestellt, wenn Zoom den externen Zahlungsweg schriftlich genehmigt hat und der komplette Testablauf erfolgreich war.
