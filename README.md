@@ -2,6 +2,8 @@
 
 Cleanes Zoom-App-Panel fuer Breakout Rooms.
 
+Die Entwicklung der optionalen Pro-Version erfolgt getrennt auf dem Branch `pro-version`. Die veroeffentlichte Gratisversion wird dadurch nicht veraendert.
+
 Die alte AutoHotkey-Version ist verworfen und liegt nur noch als Archiv in `legacy_autohotkey/`.
 
 ## Ziel
@@ -30,6 +32,14 @@ http://127.0.0.1:8765/
 ```
 
 Lokal laeuft die App im Demo-Modus. Du kannst Presets, Raumnamen und Optionen testen. Zoom-Aktionen funktionieren erst, wenn die App als Zoom App im Zoom Client registriert und geoeffnet wird.
+
+Pro-Vorschau lokal:
+
+```text
+http://127.0.0.1:8765/?pro=preview
+```
+
+Dieser Vorschauparameter funktioniert nur auf `localhost` beziehungsweise `127.0.0.1`. In Produktion wird Pro ausschliesslich serverseitig freigeschaltet.
 
 ## GitHub und Hosting
 

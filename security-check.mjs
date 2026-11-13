@@ -5,6 +5,7 @@ const root = process.cwd();
 
 const filesToScan = [
   "app.js",
+  "pro-core.js",
   "src/worker.js",
   "index.html",
   "privacy.html",
@@ -25,6 +26,8 @@ const secretPatterns = [
 
 const allowedUrlHosts = new Set([
   "appssdk.zoom.us",
+  "zoom.us",
+  "www.cloudflare.com",
   "zoombreakoutautomator.graffuxxx.workers.dev",
 ]);
 

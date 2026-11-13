@@ -10,23 +10,29 @@
     <main class="legal-shell">
       <p class="eyebrow">Breakout Room Manager</p>
       <h1>Privacy Policy</h1>
-      <p class="legal-muted">Last updated: November 5, 2026</p>
+      <p class="legal-muted">Last updated: November 13, 2026</p>
 
       <section class="legal-card">
         <h2>Overview</h2>
         <p>Breakout Room Manager is an app for Zoom Meetings that helps meeting hosts and co-hosts create, rename, open, and close breakout rooms.</p>
-        <p>The app is provided by Jan Ritter. A Cloudflare Worker serves the public website files; the app has no application user-account backend or external database. The app does not sell personal information.</p>
+        <p>The app is provided by Jan Ritter trading as TAECTRA. A Cloudflare Worker serves the public website files. The currently published free plan has no application user-account database. The app does not sell personal information.</p>
       </section>
 
       <section class="legal-card">
         <h2>Data We Process</h2>
         <p>The app may access Zoom meeting context needed to run inside the Zoom client and manage breakout rooms when the user is host or co-host. Room presets and room names entered by the user are stored locally in the user's browser storage on the device.</p>
         <p>The app code does not upload these presets or store Zoom OAuth tokens in a developer-operated database. User role and room information returned by the Zoom Apps SDK are used in memory to display and perform supported meeting actions. Local presets and preferences use browser storage without additional application-level encryption.</p>
+        <p>If Pro participant assignment is enabled, the app accesses participant display names and meeting-specific participant identifiers through the Zoom Apps SDK. This information is used in memory to prepare and apply the assignment selected by the host or co-host. It is not included in preset backups and is not retained by the app after the active app session.</p>
       </section>
 
       <section class="legal-card">
         <h2>How Data Is Used</h2>
-        <p>Data is used only to provide the app's core functionality: saving room presets locally and sending supported Zoom Apps SDK commands to manage breakout rooms in the active meeting.</p>
+        <p>Data is used only to provide the app's functionality: saving room presets locally, preparing participant assignments at the host's request, and sending supported Zoom Apps SDK commands to manage breakout rooms in the active meeting.</p>
+      </section>
+
+      <section class="legal-card">
+        <h2>Optional Pro Subscriptions</h2>
+        <p>Pro billing is not active in the currently published version. If external subscriptions are enabled after Zoom approval, payment and billing information will be processed by Stripe under Stripe's privacy policy. The app will not receive or store complete payment-card details. This policy will be updated before paid subscriptions are offered.</p>
       </section>
 
       <section class="legal-card">

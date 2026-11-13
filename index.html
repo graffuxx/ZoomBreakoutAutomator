@@ -14,7 +14,10 @@
           <p class="eyebrow">For Zoom Meetings</p>
           <h1>Breakout Rooms</h1>
         </div>
-        <span id="connectionBadge" class="badge badge-warn">Demo</span>
+        <div class="topbar-badges">
+          <span id="planBadge" class="badge badge-pro">Free</span>
+          <span id="connectionBadge" class="badge badge-warn">Demo</span>
+        </div>
       </header>
 
       <section class="status-strip" aria-live="polite">
@@ -73,6 +76,64 @@
         </label>
       </section>
 
+      <section class="panel pro-panel" aria-labelledby="proTitle">
+        <div class="section-title pro-heading">
+          <div>
+            <p class="eyebrow">Pro</p>
+            <h2 id="proTitle">Teilnehmende intelligent verteilen</h2>
+          </div>
+          <span id="proLockBadge" class="mini-badge">Gesperrt</span>
+        </div>
+
+        <p class="panel-copy">
+          Lade die aktuelle Teilnehmendenliste oder fuege Namen ein. Die App erstellt ausgeglichene Gruppen und kann sie direkt Zoom zuweisen.
+        </p>
+
+        <div class="pro-controls">
+          <button id="loadParticipantsBtn" class="button secondary" type="button">Aus Zoom laden</button>
+          <select id="assignmentModeSelect" class="select" aria-label="Verteilungsmodus">
+            <option value="balanced">Ausgeglichen zufaellig</option>
+            <option value="alphabetical">Alphabetisch</option>
+            <option value="rotation">Neue Rotation</option>
+          </select>
+        </div>
+
+        <label class="field">
+          <span>Teilnehmende (ein Name pro Zeile oder CSV)</span>
+          <textarea id="participantsInput" rows="6" placeholder="Anna Beispiel&#10;Ben Beispiel&#10;Chris Beispiel"></textarea>
+        </label>
+
+        <div class="pro-actions">
+          <button id="previewAssignmentBtn" class="button primary" type="button">Verteilung erstellen</button>
+          <button id="applyAssignmentBtn" class="button success" type="button">In Zoom zuweisen</button>
+        </div>
+
+        <div id="assignmentPreview" class="assignment-preview" aria-live="polite">
+          <p class="empty-state">Noch keine Verteilung erstellt.</p>
+        </div>
+
+        <div id="upgradeCard" class="upgrade-card">
+          <div>
+            <strong>Breakout Room Manager Pro</strong>
+            <span>Automatische Gruppen, Rotationen sowie Import und Export.</span>
+          </div>
+          <button id="upgradeBtn" class="button pro-button" type="button">Pro vormerken</button>
+        </div>
+      </section>
+
+      <section class="panel backup-panel" aria-labelledby="backupTitle">
+        <div class="section-title">
+          <h2 id="backupTitle">Preset-Backup</h2>
+          <span class="mini-badge">Pro</span>
+        </div>
+        <p class="panel-copy">Speichere alle Presets als Datei oder stelle sie auf einem anderen Geraet wieder her.</p>
+        <div class="backup-actions">
+          <button id="exportBtn" class="button secondary" type="button">Exportieren</button>
+          <label class="button secondary file-button" for="importInput">Importieren</label>
+          <input id="importInput" class="visually-hidden" type="file" accept="application/json,.json">
+        </div>
+      </section>
+
       <footer class="log" aria-live="polite">
         <strong id="messageTitle">Bereit</strong>
         <span id="messageText">Bearbeite deine Raeume. Lokal wird automatisch gespeichert.</span>
@@ -87,6 +148,13 @@
       </div>
     </template>
 
-    <script src="./app.js"></script>
+    <template id="assignmentRoomTemplate">
+      <article class="assignment-room">
+        <strong class="assignment-room-name"></strong>
+        <ul class="assignment-members"></ul>
+      </article>
+    </template>
+
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

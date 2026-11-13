@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "python3 -m http.server 8765",
-    "check": "node --check app.js && node --check src/worker.js",
-    "security:check": "node scripts/security-check.mjs"
+    "check": "node --check app.js && node --check pro-core.js && node --check src/worker.js && node scripts/test-pro-core.mjs",
+    "security:check": "node security-check.mjs"
   }
 }

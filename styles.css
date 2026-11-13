@@ -30,8 +30,17 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .app-shell {
@@ -47,6 +56,13 @@ select {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
+}
+
+.topbar-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 .eyebrow {
@@ -94,6 +110,18 @@ h2 {
   border-color: rgba(154, 100, 20, 0.25);
   color: var(--amber);
   background: #fff8ea;
+}
+
+.badge-pro {
+  border-color: rgba(113, 72, 200, 0.24);
+  background: #f2edff;
+  color: #6641b3;
+}
+
+.badge-pro.active {
+  border-color: rgba(113, 72, 200, 0.38);
+  background: #7148c8;
+  color: #fff;
 }
 
 .status-strip,
@@ -146,7 +174,8 @@ h2 {
 
 .select,
 .field input,
-.room-input {
+.room-input,
+.field textarea {
   width: 100%;
   min-height: 42px;
   border: 1px solid var(--line);
@@ -157,9 +186,20 @@ h2 {
   outline: none;
 }
 
+.field textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .select:focus,
 .field input:focus,
 .room-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(37, 87, 214, 0.16);
+}
+
+.field textarea:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(37, 87, 214, 0.16);
 }
@@ -187,6 +227,27 @@ h2 {
   justify-content: space-between;
   gap: 12px;
   margin: 16px 0 8px;
+}
+
+.panel-copy {
+  margin: 0 0 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.mini-badge {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #f2edff;
+  color: #6641b3;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mini-badge.active {
+  background: #eaf7f1;
+  color: var(--green);
 }
 
 .rooms-list {
@@ -264,6 +325,122 @@ h2 {
 
 .actions {
   grid-template-columns: 1fr 1fr;
+}
+
+.pro-panel {
+  border-color: rgba(113, 72, 200, 0.3);
+  background: linear-gradient(180deg, #fff 0%, #fbf9ff 100%);
+}
+
+.pro-heading {
+  align-items: flex-start;
+  margin-top: 0;
+}
+
+.pro-heading .eyebrow {
+  margin-bottom: 4px;
+  color: #7148c8;
+}
+
+.pro-controls,
+.pro-actions,
+.backup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pro-actions,
+.backup-actions {
+  margin-top: 12px;
+}
+
+.assignment-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.assignment-room {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.assignment-room-name {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.assignment-members {
+  margin: 0;
+  padding-left: 19px;
+  color: #394456;
+  line-height: 1.5;
+}
+
+.empty-state {
+  margin: 0;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.upgrade-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  border-radius: 8px;
+  padding: 12px;
+  background: #211a33;
+  color: #fff;
+}
+
+.upgrade-card[hidden] {
+  display: none;
+}
+
+.upgrade-card div {
+  display: grid;
+  gap: 3px;
+}
+
+.upgrade-card span {
+  color: #d9d0ee;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.button.pro-button {
+  flex: 0 0 auto;
+  background: #8d68df;
+  color: #fff;
+}
+
+.button.pro-button:hover {
+  background: #a181e8;
+}
+
+.file-button {
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .icon-button {
@@ -367,8 +544,16 @@ h2 {
   }
 
   .toolbar,
-  .actions {
+  .actions,
+  .pro-controls,
+  .pro-actions,
+  .backup-actions {
     grid-template-columns: 1fr;
+  }
+
+  .upgrade-card {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .room-row {

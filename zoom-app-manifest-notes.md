@@ -38,15 +38,19 @@ In Zoom muss eine General App / Zoom App angelegt werden. Die App braucht die Zo
 
 - `getSupportedJsApis`
 - `getUserContext`
+- `getMeetingParticipants` (Pro)
 - `getBreakoutRoomList`
 - `createBreakoutRooms`
 - `configureBreakoutRooms`
 - `openBreakoutRooms`
 - `closeBreakoutRooms`
 - `renameBreakoutRoom`
+- `assignParticipantToBreakoutRoom` (Pro)
 - `onMeetingConfigChanged`
 
 Die App muss im Meeting vom Host oder Co-Host verwendet werden. Zoom dokumentiert, dass Breakout-Room-Verwaltung ueber Zoom Apps SDK fuer Host/Co-Host bzw. Meeting Owner gedacht ist.
+
+Die beiden Pro-Capabilities werden erst in der Zoom-Entwicklungsfassung aktiviert und getestet. Eine produktive Einreichung erfolgt erst nach der Abrechnungsfreigabe und nach Aktualisierung der Datenschutz- und Sicherheitsunterlagen.
 
 ## Quellen
 
