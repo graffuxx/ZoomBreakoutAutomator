@@ -39,6 +39,7 @@ In Zoom muss eine General App / Zoom App angelegt werden. Die App braucht die Zo
 - `getSupportedJsApis`
 - `getUserContext`
 - `getMeetingParticipants` (Pro)
+- `openUrl` (Pro-Checkout und Kundenportal)
 - `getBreakoutRoomList`
 - `createBreakoutRooms`
 - `configureBreakoutRooms`
@@ -51,6 +52,15 @@ In Zoom muss eine General App / Zoom App angelegt werden. Die App braucht die Zo
 Die App muss im Meeting vom Host oder Co-Host verwendet werden. Zoom dokumentiert, dass Breakout-Room-Verwaltung ueber Zoom Apps SDK fuer Host/Co-Host bzw. Meeting Owner gedacht ist.
 
 Die beiden Pro-Capabilities werden erst in der Zoom-Entwicklungsfassung aktiviert und getestet. Eine produktive Einreichung erfolgt erst nach der Abrechnungsfreigabe und nach Aktualisierung der Datenschutz- und Sicherheitsunterlagen.
+
+## Pro-Testumgebung
+
+- Home URL: URL des getrennten Workers `zoombreakoutautomator-pro-test`
+- Domain Allow List: Hostname dieses Testworkers
+- Zusaetzliche erlaubte externe Ziele fuer `openUrl`: die tatsaechlichen Stripe-Checkout- und Kundenportal-Hosts aus dem Testlauf
+- Die veroeffentlichte Home URL bleibt waehrend des Tests unveraendert.
+
+Der externe Zahlungsweg wird erst nach schriftlicher Zoom-Freigabe aktiviert. Bis dahin liefert die App ausschliesslich den kostenlosen Funktionsumfang aus.
 
 ## Quellen
 
