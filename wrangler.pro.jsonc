@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zoombreakoutautomator-pro-test",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-09-07",
+  "workers_dev": true,
+  "preview_urls": true,
+  "vars": {
+    "BILLING_ENABLED": "false",
+    "STRIPE_PRO_PRICE_ID": "price_1UbRAx3e1xaSe4TbIOUvToq1"
+  },
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}
