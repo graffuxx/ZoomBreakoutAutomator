@@ -22,16 +22,17 @@ Pro ergaenzt:
 - Pro-Oberflaeche und Verteilungslogik sind implementiert.
 - Ohne bestaetigte Berechtigung bleibt Pro gesperrt.
 - Lokal ist die Vorschau nur ueber `http://127.0.0.1:8765/?pro=preview` aktiv.
-- Der Worker liefert bis zur fertigen serverseitigen Lizenzpruefung immer den Free-Status.
-- Stripe Checkout bleibt deaktiviert, bis Zoom den externen Abrechnungsweg schriftlich bestaetigt.
+- Der Worker verifiziert den verschluesselten Zoom-App-Kontext und erstellt eine kurzlebige, signierte Sitzung.
+- Stripe-Abos werden ueber einen pseudonymen Zoom-Nutzerschluessel zugeordnet und serverseitig geprueft.
+- Checkout, Kundenportal und signierte Webhooks sind implementiert, bleiben aber ueber `BILLING_ENABLED=false` deaktiviert, bis Zoom den externen Abrechnungsweg schriftlich bestaetigt.
 
 ## Vor einer Veroeffentlichung
 
 1. Zoom bestaetigt den erlaubten Abrechnungsweg.
 2. Stripe-Geschaeftskonto fuer TAECTRA fertig einrichten.
-3. Sichere Benutzerzuordnung ueber den verifizierten Zoom-App-Kontext implementieren.
-4. Stripe Checkout, Webhook-Verifikation und serverseitige Berechtigungen implementieren.
-5. Datenschutz, Nutzungsbedingungen, Architekturdiagramm und Sicherheitsnachweise aktualisieren.
+3. Stripe-Testschluessel, Testpreis und Webhook als Cloudflare-Secrets konfigurieren.
+4. Checkout und Rueckkehr zu Zoom mit einer Testsubscription pruefen.
+5. Architekturdiagramm und Sicherheitsnachweise aktualisieren.
 6. In einer separaten Zoom-Entwicklungsfassung testen.
 7. Aenderung bei Zoom zur Pruefung einreichen.
 
