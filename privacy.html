@@ -32,13 +32,15 @@
 
       <section class="legal-card">
         <h2>Optional Pro Subscriptions</h2>
-        <p>Pro billing is not active in the currently published version. If external subscriptions are enabled after Zoom approval, payment and billing information will be processed by Stripe under Stripe's privacy policy. The app will not receive or store complete payment-card details. This policy will be updated before paid subscriptions are offered.</p>
+        <p>Pro billing is not active in the currently published version. If external subscriptions are enabled after Zoom approval, payment, contact, and billing information will be processed by Stripe under Stripe's privacy policy. The app will not receive or store complete payment-card details.</p>
+        <p>The subscription is associated with a pseudonymous key derived from the verified Zoom App user context. The app does not send the user's Zoom display name, participant list, room presets, or meeting content to Stripe.</p>
       </section>
 
       <section class="legal-card">
         <h2>Sharing And Retention</h2>
         <p>When you create or rename rooms, the selected room names and commands are sent to Zoom through the Zoom Apps SDK. Zoom processes meeting information under its own terms and privacy policy.</p>
         <p>Cloudflare hosts and delivers the public app files and processes connection information such as IP addresses and request metadata for delivery and security. This is separate from the room presets stored locally. See <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's Privacy Policy</a> for information about its processing.</p>
+        <p>When Pro billing is active, Cloudflare verifies the encrypted Zoom App context and maintains a short-lived signed session cookie. Stripe retains billing and subscription records according to its legal and contractual retention duties.</p>
         <p>Locally saved room presets remain until you edit them or clear the site's app/browser storage. Removing authorization in Zoom is not a guarantee that local storage is deleted. The app code does not add analytics trackers.</p>
       </section>
 
