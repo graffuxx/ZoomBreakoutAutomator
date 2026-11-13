@@ -6,6 +6,7 @@ const REQUIRED_CAPABILITIES = [
   "config",
   "getSupportedJsApis",
   "getUserContext",
+  "openUrl",
   "getMeetingParticipants",
   "getBreakoutRoomList",
   "createBreakoutRooms",
@@ -239,6 +240,7 @@ function render() {
   els.proLockBadge.textContent = hasPro() ? "Aktiv" : "Gesperrt";
   els.proLockBadge.className = hasPro() ? "mini-badge active" : "mini-badge";
   els.upgradeCard.hidden = hasPro();
+  els.upgradeBtn.textContent = entitlement.checkoutAvailable ? "Pro freischalten" : "Pro in Vorbereitung";
 
   [
     els.loadParticipantsBtn,
@@ -301,6 +303,64 @@ async function initEntitlement() {
   }
 
   render();
+}
+
+async function refreshEntitlement() {
+  try {
+    const response = await fetch("/api/billing/status", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin"
+    });
+    if (!response.ok) return false;
+    const next = await response.json();
+    entitlement = {
+      ...entitlement,
+      ...next,
+      active: next?.plan === "pro" && next?.active === true
+    };
+    render();
+    return hasPro();
+  } catch {
+    return false;
+  }
+}
+
+async function openBillingUrl(url) {
+  if (zoom.ready && hasApi("openUrl")) {
+    await zoom.sdk.openUrl({ url });
+    return;
+  }
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) window.location.assign(url);
+}
+
+async function startCheckout() {
+  if (!entitlement.checkoutAvailable) {
+    setMessage("Pro in Vorbereitung", "Der Kauf wird aktiviert, sobald Zoom den externen Abrechnungsweg bestaetigt hat.");
+    return;
+  }
+
+  const response = await fetch("/api/billing/checkout", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    credentials: "same-origin"
+  });
+  const payload = await response.json();
+  if (!response.ok || !payload.url) throw new Error(payload.error || "Checkout konnte nicht gestartet werden.");
+
+  await openBillingUrl(payload.url);
+  setMessage("Stripe Checkout geoeffnet", "Schliesse den Kauf im Browser ab und kehre danach zu Zoom zurueck.");
+
+  let attempts = 0;
+  const poll = window.setInterval(async () => {
+    attempts += 1;
+    if (await refreshEntitlement()) {
+      window.clearInterval(poll);
+      setMessage("Pro ist aktiv", "Die erweiterten Breakout-Funktionen sind jetzt freigeschaltet.");
+    } else if (attempts >= 24) {
+      window.clearInterval(poll);
+    }
+  }, 5000);
 }
 
 function renderRooms(preset) {
@@ -671,9 +731,7 @@ els.importInput.addEventListener("change", () => runAction(els.exportBtn, "Impor
   await importPresets(els.importInput.files?.[0]);
   els.importInput.value = "";
 }));
-els.upgradeBtn.addEventListener("click", () => {
-  setMessage("Pro in Vorbereitung", "Die Funktionen sind fertig vorbereitet. Der Kauf wird aktiviert, sobald Zoom den Abrechnungsweg bestaetigt hat.");
-});
+els.upgradeBtn.addEventListener("click", () => runAction(els.upgradeBtn, "Oeffne Stripe...", startCheckout));
 
 render();
 renderAssignment();
