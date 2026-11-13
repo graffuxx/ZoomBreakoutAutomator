@@ -25,13 +25,17 @@ Pro ergaenzt:
 - Der Worker verifiziert den verschluesselten Zoom-App-Kontext und erstellt eine kurzlebige, signierte Sitzung.
 - Stripe-Abos werden ueber einen pseudonymen Zoom-Nutzerschluessel zugeordnet und serverseitig geprueft.
 - Checkout, Kundenportal und signierte Webhooks sind implementiert, bleiben aber ueber `BILLING_ENABLED=false` deaktiviert, bis Zoom den externen Abrechnungsweg schriftlich bestaetigt.
+- Der getrennte Cloudflare-Testworker ist bereitgestellt; alle vier Geheimwerte liegen ausschliesslich als verschluesselte Secrets vor.
+- Der Stripe-Testschluessel ist auf Checkout Sessions, Customer Portal und lesenden Subscription-Zugriff beschraenkt.
+- Ein signiertes Stripe-Testereignis wurde erfolgreich mit HTTP `200 OK` zugestellt.
+- Die Zoom-Entwicklungsfassung enthaelt zusaetzlich `openUrl`, `getMeetingParticipants` und `assignParticipantToBreakoutRoom`. Die Produktionsfassung wurde nicht veraendert.
 
 ## Vor einer Veroeffentlichung
 
 1. Zoom bestaetigt den erlaubten Abrechnungsweg.
 2. Stripe-Geschaeftskonto fuer TAECTRA fertig einrichten.
-3. Stripe-Testschluessel, Testpreis und Webhook als Cloudflare-Secrets konfigurieren.
-4. Checkout und Rueckkehr zu Zoom mit einer Testsubscription pruefen.
+3. Erledigt: Stripe-Testschluessel, Testpreis und Webhook als Cloudflare-Secrets konfigurieren.
+4. Nach Zoom-Freigabe: Checkout und Rueckkehr zu Zoom mit einer Testsubscription pruefen.
 5. Architekturdiagramm und Sicherheitsnachweise aktualisieren.
 6. In einer separaten Zoom-Entwicklungsfassung testen.
 7. Aenderung bei Zoom zur Pruefung einreichen.
