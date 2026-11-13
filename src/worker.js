@@ -26,6 +26,16 @@ function responseWithSecurityHeaders(response) {
   });
 }
 
+function jsonResponse(payload, status = 200) {
+  return responseWithSecurityHeaders(new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
+  }));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -41,6 +51,21 @@ export default {
         status: 403,
         headers: SECURITY_HEADERS,
       });
+    }
+
+    if (url.pathname === "/api/billing/status" && request.method === "GET") {
+      return jsonResponse({
+        plan: "free",
+        active: false,
+        checkoutAvailable: false,
+        provider: "pending-zoom-approval"
+      });
+    }
+
+    if (url.pathname === "/api/billing/checkout" && request.method === "POST") {
+      return jsonResponse({
+        error: "Checkout is disabled until Zoom approves the external billing flow."
+      }, 503);
     }
 
     const response = await env.ASSETS.fetch(request);
